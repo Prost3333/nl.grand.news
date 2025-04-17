@@ -8,6 +8,9 @@ version '1.0-SNAPSHOT'
 repositories {
     mavenCentral()
 }
+task stage {
+    dependsOn build
+}
 
 dependencies {
     implementation 'org.telegram:telegrambots:6.9.7.1'
