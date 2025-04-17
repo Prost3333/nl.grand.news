@@ -32,3 +32,10 @@ tasks.withType(JavaCompile).configureEach {
 test {
     useJUnitPlatform()
 }
+jar {
+    manifest {
+        attributes(
+                'Main-Class': 'nl.grand.news.Main'  // Замените на ваш основной класс
+        )
+    }
+}
