@@ -20,6 +20,7 @@ dependencies {
     implementation 'org.projectlombok:lombok:1.18.24'
     compileOnly 'org.projectlombok:lombok:1.18.24'
     annotationProcessor 'org.projectlombok:lombok:1.18.24'
+    implementation 'io.github.bonigarcia:webdrivermanager:5.7.0'
 }
 tasks.withType(JavaCompile).configureEach {
     options.encoding = "UTF-8"

@@ -1,5 +1,6 @@
 package nl.grand.news.text;
 
+import io.github.bonigarcia.wdm.WebDriverManager;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import nl.grand.news.translate.DeepLTranslateService;
@@ -76,8 +77,8 @@ public class NewsHandler {
     public List<String> getDutchNews() {
         List<String> newsList = new ArrayList<>();
 
-        System.setProperty("webdriver.chrome.driver", "C:\\Users\\dimab\\Downloads\\chromedriver-win64\\chromedriver-win64\\chromedriver.exe");
-
+//        System.setProperty("webdriver.chrome.driver", "C:\\Users\\dimab\\Downloads\\chromedriver-win64\\chromedriver-win64\\chromedriver.exe");
+        WebDriverManager.chromedriver().setup();
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--headless");
         options.addArguments("--disable-gpu");
