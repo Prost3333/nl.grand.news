@@ -10,6 +10,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.openqa.selenium.By;
+import org.openqa.selenium.TimeoutException;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -19,10 +20,7 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.io.IOException;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Data
 @AllArgsConstructor
@@ -76,19 +74,41 @@ public class NewsHandler {
 
     public List<String> getDutchNews() {
         List<String> newsList = new ArrayList<>();
-
-//        System.setProperty("webdriver.chrome.driver", "C:\\Users\\dimab\\Downloads\\chromedriver-win64\\chromedriver-win64\\chromedriver.exe");
-        WebDriverManager.chromedriver().setup();
-        ChromeOptions options = new ChromeOptions();
-        options.addArguments("--headless");
-        options.addArguments("--disable-gpu");
-        options.addArguments("--window-size=1920,1080");
-        options.addArguments("--no-sandbox");
-        options.addArguments("--disable-dev-shm-usage");
-
-        WebDriver driver = new ChromeDriver(options);
+        WebDriver driver = null;
 
         try {
+            // Настройка WebDriver для работы в Docker и локально
+            String chromePath = System.getenv("CHROME_BIN");
+            String driverPath = System.getenv("CHROMEDRIVER_PATH");
+
+            if (chromePath != null && driverPath != null) {
+                // Режим для Docker (Chromium)
+                System.setProperty("webdriver.chrome.driver", driverPath);
+                ChromeOptions options = new ChromeOptions();
+                options.setBinary(chromePath);
+                options.addArguments(
+                        "--headless",
+                        "--disable-gpu",
+                        "--window-size=1920,1080",
+                        "--no-sandbox",
+                        "--disable-dev-shm-usage",
+                        "--disable-extensions",
+                        "--remote-debugging-port=9222"
+                );
+                driver = new ChromeDriver(options);
+            } else {
+                // Режим для локальной разработки (Chrome)
+                WebDriverManager.chromedriver().setup();
+                ChromeOptions options = new ChromeOptions();
+                options.addArguments(
+                        "--headless",
+                        "--disable-gpu",
+                        "--window-size=1920,1080"
+                );
+                driver = new ChromeDriver(options);
+            }
+
+            // Парсинг новостей
             driver.get("https://www.dutchnews.nl/");
 
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
@@ -99,32 +119,38 @@ public class NewsHandler {
             List<WebElement> headers = driver.findElements(By.cssSelector("h3[data-link]"));
             System.out.println("Найдено статей: " + headers.size());
 
-            for (WebElement header : headers) {
-                String url = header.getAttribute("data-link");
-
-                if (url != null &&
-                        url.startsWith("https://www.dutchnews.nl/") &&
-                        !url.contains("#")) {
-
-                    if (!newsList.contains(url)) {
+            // Сбор уникальных URL
+            headers.stream()
+                    .map(header -> header.getAttribute("data-link"))
+                    .filter(url -> url != null
+                            && url.startsWith("https://www.dutchnews.nl/")
+                            && !url.contains("#"))
+                    .distinct()
+                    .limit(10)
+                    .forEach(url -> {
                         newsList.add(url);
                         System.out.println("Добавлена ссылка: " + url);
-                    }
-                }
+                    });
 
-                if (newsList.size() >= 10) break;
-            }
-
+        } catch (TimeoutException e) {
+            System.err.println("Таймаут при загрузке страницы: " + e.getMessage());
+        } catch (NoSuchElementException e) {
+            System.err.println("Элемент не найден: " + e.getMessage());
         } catch (Exception e) {
-            System.err.println("Ошибка при парсинге DutchNews.nl: " + e.getMessage());
+            System.err.println("Неожиданная ошибка: " + e.getMessage());
             e.printStackTrace();
         } finally {
-            driver.quit();
+            if (driver != null) {
+                try {
+                    driver.quit();
+                } catch (Exception e) {
+                    System.err.println("Ошибка при закрытии драйвера: " + e.getMessage());
+                }
+            }
         }
 
         return newsList;
     }
-
     public List<String> getNlTimesNews() {
         List<String> newsList = new ArrayList<>();
         try {
