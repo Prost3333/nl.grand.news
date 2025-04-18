@@ -39,8 +39,14 @@ jar {
     manifest {
         attributes 'Main-Class': 'nl.grand.news.Main'
     }
-    archiveBaseName.set('bot')
-    archiveVersion.set('')
+    // Включаем все зависимости в JAR
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    archiveBaseName = 'bot'
+    archiveVersion = ''
 }
 
 
