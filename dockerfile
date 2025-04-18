@@ -1,12 +1,6 @@
 # Этап сборки
 FROM eclipse-temurin:17-jdk as builder
 
-# Установка только необходимых зависимостей для сборки
-RUN apt-get update && apt-get install -y \
-    wget \
-    unzip \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 COPY . .
 RUN chmod +x gradlew && ./gradlew clean build
@@ -14,10 +8,9 @@ RUN chmod +x gradlew && ./gradlew clean build
 # Финальный образ
 FROM eclipse-temurin:17-jre
 
-# Установка Chromium вместо Google Chrome (более стабильно в Docker)
+# Установка Chromium и зависимостей (разделена на несколько RUN для надежности)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    chromium \
-    chromium-driver \
+    ca-certificates \
     fonts-liberation \
     libasound2 \
     libatk-bridge2.0-0 \
@@ -33,10 +26,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Настройка окружения для Chromium
+# Отдельная установка Chromium (новейшая версия из snap)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    snapd \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN snap install chromium && \
+    ln -s /snap/bin/chromium /usr/bin/chromium && \
+    snap install chromium-ffmpeg
+
+# Настройка окружения
 ENV CHROME_BIN=/usr/bin/chromium
-ENV CHROMEDRIVER_PATH=/usr/bin/chromium-driver
+ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
 ENV DISPLAY=:99
+ENV LANG=C.UTF-8
 
 WORKDIR /app
 COPY --from=builder /app/build/libs/bot.jar .
