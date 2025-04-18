@@ -32,6 +32,9 @@ test {
     useJUnitPlatform()
 }
 jar {
+    manifest {
+        attributes 'Main-Class': 'nl.grand.news.Main'
+    }
     archiveBaseName.set('bot')
     archiveVersion.set('')
 }
