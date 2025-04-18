@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: telegram-bot
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    branches: ["main"]
+    envVars:
+      - key: REDIS_HOST
+        value: "redis_instance_url"
+      - key: LIBRETRANSLATE_URL
+        value: "http://localhost:5000"
