@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
 }
 
 group 'nl.grand.news'
@@ -7,9 +8,6 @@ version '1.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
-}
-task stage {
-    dependsOn build
 }
 
 dependencies {
@@ -25,6 +23,7 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok:1.18.24'
     implementation 'io.github.bonigarcia:webdrivermanager:5.7.0'
 }
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = "UTF-8"
 }
@@ -32,10 +31,6 @@ tasks.withType(JavaCompile).configureEach {
 test {
     useJUnitPlatform()
 }
-jar {
-    manifest {
-        attributes(
-                'Main-Class': 'nl.grand.news.Main'  // Замените на ваш основной класс
-        )
-    }
-}
+
+
+
