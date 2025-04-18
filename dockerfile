@@ -1,7 +1,7 @@
-# Используем многоэтапную сборку для уменьшения размера финального образа
+# Многоэтапная сборка
 FROM eclipse-temurin:17-jdk as builder
 
-# Устанавливаем зависимости для сборки (включая Chromium)
+# Установка зависимостей
 RUN apt-get update && apt-get install -y \
     wget \
     curl \
@@ -11,12 +11,14 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 COPY . .
-RUN ./gradlew clean build
+
+# Даем права на выполнение gradlew и запускаем сборку
+RUN chmod +x gradlew && ./gradlew clean build
 
 # Финальный образ
 FROM eclipse-temurin:17-jre
 
-# Устанавливаем только runtime-зависимости
+# Runtime зависимости
 RUN apt-get update && apt-get install -y \
     chromium \
     chromium-driver \
@@ -30,5 +32,4 @@ ENV DISPLAY=:99
 WORKDIR /app
 COPY --from=builder /app/build/libs/bot.jar .
 
-# Оптимизированный запуск
-ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "bot.jar"]
+ENTRYPOINT ["java", "-jar", "bot.jar"]
