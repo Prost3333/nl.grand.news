@@ -1,7 +1,7 @@
-# Используем официальный образ для Java (OpenJDK 17)
-FROM eclipse-temurin:17-jdk
+# Используем многоэтапную сборку для уменьшения размера финального образа
+FROM eclipse-temurin:17-jdk as builder
 
-# Устанавливаем зависимости для Chromium и WebDriver
+# Устанавливаем зависимости для сборки (включая Chromium)
 RUN apt-get update && apt-get install -y \
     wget \
     curl \
@@ -9,15 +9,26 @@ RUN apt-get update && apt-get install -y \
     chromium-driver \
     && rm -rf /var/lib/apt/lists/*
 
-# Устанавливаем переменные окружения для Chromium и ChromeDriver
+WORKDIR /app
+COPY . .
+RUN ./gradlew clean build
+
+# Финальный образ
+FROM eclipse-temurin:17-jre
+
+# Устанавливаем только runtime-зависимости
+RUN apt-get update && apt-get install -y \
+    chromium \
+    chromium-driver \
+    && rm -rf /var/lib/apt/lists/*
+
+# Настройки Chromium
 ENV CHROME_BIN=/usr/bin/chromium
 ENV CHROMEDRIVER_PATH=/usr/bin/chromium-driver
+ENV DISPLAY=:99
 
-# Рабочая директория для приложения
 WORKDIR /app
+COPY --from=builder /app/build/libs/bot.jar .
 
-# Копируем jar-файл из локальной сборки в контейнер
-COPY build/libs/bot.jar bot.jar
-
-# Устанавливаем команду запуска приложения
-ENTRYPOINT ["java", "-jar", "bot.jar"]
+# Оптимизированный запуск
+ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "bot.jar"]
