@@ -16,8 +16,9 @@ import java.nio.charset.StandardCharsets;
 @Data
 @AllArgsConstructor
 public class TranslateService {
-    private static final String LIBRE_TRANSLATE_URL = "http://localhost:5000/translate";
+//    private static final String LIBRE_TRANSLATE_URL = "https://libretranslate-custom.onrender.com/translate";
 
+    private static final String LIBRE_TRANSLATE_URL = System.getenv("LIBRETRANSLATE_URL");
     public String translateText(String text, String sourceLang, String targetLang) {
         try {
             if (text == null || text.isBlank()) {
