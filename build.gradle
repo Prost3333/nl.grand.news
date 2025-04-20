@@ -47,6 +47,9 @@ jar {
 
     archiveBaseName = 'bot'
     archiveVersion = ''
+    exclude 'META-INF/*.RSA'
+    exclude 'META-INF/*.SF'
+    exclude 'META-INF/*.DSA'
 }
 
 
