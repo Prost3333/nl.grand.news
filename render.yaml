@@ -11,7 +11,7 @@ services:
       - key: REDIS_HOST
         value: "redis_instance_url"
       - key: LIBRETRANSLATE_URL
-        value: "https://libretranslate-custom.onrender.com/translate"
+        value: "https://libretranslate-custom.onrender.com"
       - key: GRADLE_OPTS
         value: "-Dorg.gradle.daemon=false -Dfile.encoding=UTF-8"
     systemProperties:
