@@ -5,10 +5,16 @@ services:
     dockerfilePath: ./Dockerfile
     plan: free
     branches: ["main"]
+    buildCommand: ./gradlew clean build --no-daemon -x test
+    startCommand: java -jar build/libs/telegram-bot.jar
     envVars:
       - key: REDIS_HOST
         value: "redis_instance_url"
       - key: LIBRETRANSLATE_URL
         value: "https://libretranslate-custom.onrender.com/translate"
+      - key: GRADLE_OPTS
+        value: "-Dorg.gradle.daemon=false -Dfile.encoding=UTF-8"
     ports:
       - "5000"
+    systemProperties:
+      org.gradle.daemon: "false"

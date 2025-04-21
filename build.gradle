@@ -38,6 +38,9 @@ dependencies {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = "UTF-8"
 }
+tasks.withType(JavaExec) {
+    systemProperty "org.gradle.daemon", "false"
+}
 
 test {
     useJUnitPlatform()
