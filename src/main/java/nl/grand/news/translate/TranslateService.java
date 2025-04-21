@@ -5,11 +5,19 @@ import com.google.cloud.translate.TranslateOptions;
 import com.google.cloud.translate.Translation;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import nl.grand.news.config.AppConfig;
 
 @Data
 @AllArgsConstructor
 public class TranslateService {
-    private final Translate translate = TranslateOptions.getDefaultInstance().getService();
+    private final Translate translate;
+
+    public TranslateService() {
+        this.translate = TranslateOptions.newBuilder()
+                .setApiKey(AppConfig.getGOOGLE_API_KEY())
+                .build()
+                .getService();
+    }
 
     public String translateText(String text, String sourceLang, String targetLang) {
         try {

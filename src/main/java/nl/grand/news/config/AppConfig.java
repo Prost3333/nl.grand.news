@@ -18,6 +18,7 @@ public class AppConfig {
         String username = System.getenv("telegram.bot.username");
         String groupId = System.getenv("telegram.bot.group_id");
         String access = System.getenv("telegram.bot.accees");
+        String GOOGLE_API_KEY= System.getenv("GOOGLE_API_KEY");
 
         // Если переменные окружения не заданы, читаем из файла
         if (token == null || username == null || groupId == null || access == null) {
@@ -35,6 +36,7 @@ public class AppConfig {
             props.setProperty("telegram.bot.username", username);
             props.setProperty("telegram.bot.group_id", groupId);
             props.setProperty("telegram.bot.accees", access);
+            props.setProperty("GOOGLE_API_KEY",GOOGLE_API_KEY);
         }
     }
 
@@ -53,4 +55,5 @@ public class AppConfig {
     public static Long getAccessUsers() {
         return Long.valueOf(props.getProperty("telegram.bot.accees"));
     }
+    public static String getGOOGLE_API_KEY(){return props.getProperty("GOOGLE_API_KEY");}
 }
