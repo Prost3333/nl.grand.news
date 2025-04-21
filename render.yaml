@@ -14,7 +14,5 @@ services:
         value: "https://libretranslate-custom.onrender.com/translate"
       - key: GRADLE_OPTS
         value: "-Dorg.gradle.daemon=false -Dfile.encoding=UTF-8"
-    ports:
-      - "5000"
     systemProperties:
       org.gradle.daemon: "false"
