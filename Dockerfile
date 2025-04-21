@@ -1,58 +1,47 @@
-# Этап сборки
 FROM eclipse-temurin:17-jdk-jammy AS builder
 
-# Установка зависимостей (Chrome и другие)
+# Установка зависимостей и headless Chrome + chromedriver
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget \
-    unzip \
-    xvfb \
-    fonts-liberation \
-    libx11-xcb1 \
-    libxcomposite1 \
-    libxrandr2 \
-    libglu1-mesa \
-    libnss3 \
-    libxss1 \
-    libappindicator3-1 \
-    libindicator7 \
-    xdg-utils \
-    curl \
-    gnupg \
-    ca-certificates && \
-    wget -q -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
-    apt-get install -y /tmp/chrome.deb && \
-    rm /tmp/chrome.deb && \
-    rm -rf /var/lib/apt/lists/*
+    wget unzip curl xvfb fonts-liberation \
+    libx11-xcb1 libxcomposite1 libxrandr2 libglu1-mesa \
+    libnss3 libxss1 libappindicator3-1 libindicator7 \
+    xdg-utils ca-certificates && \
+    # Установка Chrome Headless
+    wget -q -O /tmp/chrome.zip https://storage.googleapis.com/chrome-for-testing-public/137.0.7137.0/linux64/chrome-headless-shell-linux64.zip && \
+    unzip /tmp/chrome.zip -d /opt/ && \
+    mv /opt/chrome-headless-shell-linux64 /opt/chrome && \
+    ln -s /opt/chrome/chrome-headless-shell /usr/bin/google-chrome && \
+    # Установка Chromedriver
+    wget -q -O /tmp/driver.zip https://storage.googleapis.com/chrome-for-testing-public/137.0.7137.0/linux64/chromedriver-linux64.zip && \
+    unzip /tmp/driver.zip -d /tmp/ && \
+    mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver && \
+    chmod +x /usr/local/bin/chromedriver && \
+    rm -rf /tmp/* /var/lib/apt/lists/*
+
+ENV CHROME_BIN=/usr/bin/google-chrome
+ENV CHROMEDRIVER_PATH=/usr/local/bin/chromedriver
+ENV LIBRETRANSLATE_URL=http://localhost:5000
 
 WORKDIR /app
 COPY . .
 
-# Отключаем daemon и кеширование для production сборки
-RUN chmod +x ./gradlew && \
-    ./gradlew clean build --no-daemon --stacktrace -x test
+RUN chmod +x ./gradlew && ./gradlew clean build --no-daemon --stacktrace -x test
 
 # Финальный образ
 FROM eclipse-temurin:17-jre-jammy
 
-# Установка только необходимых runtime-зависимостей
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    xvfb \
-    fonts-liberation \
-    libx11-xcb1 \
-    libxcomposite1 \
-    libxrandr2 \
-    libglu1-mesa \
-    libnss3 \
-    libxss1 \
-    libappindicator3-1 \
-    libindicator7 && \
-    rm -rf /var/lib/apt/lists/*
+# Копируем Chrome и Chromedriver из builder
+COPY --from=builder /opt/chrome /opt/chrome
+COPY --from=builder /usr/bin/google-chrome /usr/bin/google-chrome
+COPY --from=builder /usr/local/bin/chromedriver /usr/local/bin/chromedriver
+
+ENV CHROME_BIN=/usr/bin/google-chrome
+ENV CHROMEDRIVER_PATH=/usr/local/bin/chromedriver
+ENV LIBRETRANSLATE_URL=http://localhost:5000
 
 WORKDIR /app
-
-# Копируем только необходимые артефакты из стадии builder
 COPY --from=builder /app/build/libs/*.jar ./telegram-bot.jar
 COPY --from=builder /app/src/main/resources ./resources
 
-# Указываем команду запуска
 CMD ["java", "-jar", "telegram-bot.jar"]
+
