@@ -1,26 +1,15 @@
 package nl.grand.news.translate;
 
-import jakarta.json.Json;
-import jakarta.json.JsonObject;
-import jakarta.json.JsonReader;
-import jakarta.json.JsonWriter;
-import lombok.*;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
+import com.google.cloud.translate.Translate;
+import com.google.cloud.translate.TranslateOptions;
+import com.google.cloud.translate.Translation;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
 @Data
 @AllArgsConstructor
 public class TranslateService {
-
-    private static final String LIBRE_TRANSLATE_URL = System.getenv("LIBRETRANSLATE_URL");
+    private final Translate translate = TranslateOptions.getDefaultInstance().getService();
 
     public String translateText(String text, String sourceLang, String targetLang) {
         try {
@@ -38,41 +27,18 @@ public class TranslateService {
             System.out.println("FROM: " + sourceLang + " TO: " + targetLang);
             System.out.println("TEXT: " + text);
 
-            JsonObject jsonPayload = Json.createObjectBuilder()
-                    .add("q", text)
-                    .add("source", sourceLang)
-                    .add("target", targetLang)
-                    .add("format", "text")
-                    .build();
+            Translation translation = translate.translate(
+                    text,
+                    Translate.TranslateOption.sourceLanguage(sourceLang),
+                    Translate.TranslateOption.targetLanguage(targetLang),
+                    Translate.TranslateOption.format("text")
+            );
 
-            // 👇 Добавляем "/translate" вручную
-            URL url = new URL(LIBRE_TRANSLATE_URL + "/translate");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "application/json");
-            conn.setDoOutput(true);
+            return translation.getTranslatedText();
 
-            try (OutputStream os = conn.getOutputStream();
-                 JsonWriter writer = Json.createWriter(os)) {
-                writer.write(jsonPayload);
-            }
-
-            int responseCode = conn.getResponseCode();
-            if (responseCode != 200) {
-                System.err.println("❌ Ошибка перевода: " + responseCode);
-                return "Ошибка перевода (" + responseCode + ")";
-            }
-
-            try (InputStream is = conn.getInputStream();
-                 JsonReader jsonReader = Json.createReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
-                JsonObject jsonResponse = jsonReader.readObject();
-                return jsonResponse.getString("translatedText");
-            }
-
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
             return "Ошибка перевода.";
         }
     }
 }
-

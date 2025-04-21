@@ -21,6 +21,7 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Data
 @AllArgsConstructor
@@ -70,7 +71,48 @@ public class NewsHandler {
         return newsList;
     }
 
+    public List<String> getDutchNews1() {
+        List<String> newsList = new ArrayList<>();
+        final String NEWS_URL = "https://www.dutchnews.nl/";
+        final int TIMEOUT = 20_000; // 20 секунд
 
+        try {
+            // Настраиваем HTTP-запрос с User-Agent и другими параметрами
+            Document doc = Jsoup.connect(NEWS_URL)
+                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+                    .timeout(TIMEOUT)
+                    .followRedirects(true)
+                    .get();
+
+            // Парсим заголовки статей
+            Elements headers = doc.select("h3[data-link]");
+            System.out.println("Найдено статей: " + headers.size());
+
+            // Фильтруем и собираем URL
+            newsList = headers.stream()
+                    .map(header -> header.attr("data-link"))
+                    .filter(url -> url != null
+                            && url.startsWith("https://www.dutchnews.nl/")
+                            && !url.contains("#"))
+                    .distinct()
+                    .limit(10)
+                    .collect(Collectors.toList());
+
+            newsList.forEach(url -> System.out.println("Добавлена ссылка: " + url));
+
+        } catch (org.jsoup.HttpStatusException e) {
+            System.err.println("HTTP ошибка: " + e.getStatusCode() + " - " + e.getMessage());
+        } catch (java.net.SocketTimeoutException e) {
+            System.err.println("Таймаут при загрузке страницы: " + e.getMessage());
+        } catch (java.io.IOException e) {
+            System.err.println("Ошибка ввода-вывода: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Неожиданная ошибка: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return newsList;
+    }
 
     public List<String> getDutchNews() {
         List<String> newsList = new ArrayList<>();
