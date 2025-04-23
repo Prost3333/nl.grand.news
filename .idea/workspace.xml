@@ -5,9 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="45e14026-4363-42a6-a998-7dbcc2e6acb8" name="Changes" comment="ty">
+      <change afterPath="$PROJECT_DIR$/.idea/uiDesigner.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/nl/grand/news/entity/NewsItem.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/nl/grand/news/config/AppConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/nl/grand/news/config/AppConfig.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/config.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/config.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/nl/grand/news/text/NewsHandler.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/nl/grand/news/text/NewsHandler.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -53,8 +55,8 @@
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
-        <option value="Class" />
         <option value="JUnit5 Test Class" />
+        <option value="Class" />
       </list>
     </option>
   </component>
@@ -67,7 +69,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="main" />
+        <entry key="$PROJECT_DIR$" value="feature/updatenews" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -213,10 +215,10 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Gradle.nl.grand.news [clean]" />
+        <item itemvalue="Gradle.nl.grand.news [build]" />
         <item itemvalue="Gradle.NewsHandlerTest.translate" />
         <item itemvalue="Gradle.NewsHandlerTest" />
-        <item itemvalue="Gradle.nl.grand.news [build]" />
-        <item itemvalue="Gradle.nl.grand.news [clean]" />
         <item itemvalue="Application.Main" />
       </list>
     </recent_temporary>

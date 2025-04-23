@@ -4,13 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import nl.grand.news.cache.RedisService;
 import nl.grand.news.config.AppConfig;
-import nl.grand.news.text.NewsHandler;
+import nl.grand.news.entity.NewsItem;
 import nl.grand.news.text.TextProcessing;
-import nl.grand.news.translate.DeepLTranslateService;
-import nl.grand.news.translate.TranslateService;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.select.Elements;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -133,63 +128,62 @@ public class NewsBot extends TelegramLongPollingBot {
     private void checkNews() {
         System.out.println("checkNews ready");
         System.out.println("newsToGroupEnabled status: " + newsToGroupEnabled);
-        List<String> latestNews = textProcessing.getNewsHandler().getLatestNews();
+
+        List<NewsItem> latestNews = textProcessing.getNewsHandler().getLatestNews();
         System.out.println("all news count: " + latestNews.size());
-        for (String newsUrl : latestNews) {
-            String normalizedUrl = textProcessing.normalizeUrl(newsUrl);
+
+        for (NewsItem item : latestNews) {
+            String url = item.getUrl();
+            String normalizedUrl = textProcessing.normalizeUrl(url);
+
             if (!redis.isNewsAlreadySent(normalizedUrl)) {
                 System.out.println("✅ send new news: " + normalizedUrl);
                 redis.markNewsAsSent(normalizedUrl);
-                notifySubscribers(newsUrl);
+
+                notifySubscribers(item); // передаём весь NewsItem, а не строку
 
                 try {
                     Thread.sleep(10000);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    System.err.println(" error sender");
+                    System.err.println("error sender");
                 }
             } else {
-                System.out.println(" Уже отправляли: " + normalizedUrl);
+                System.out.println("Уже отправляли: " + normalizedUrl);
             }
         }
     }
-
-
-    private void notifySubscribers(String newsUrl) {
+    private void notifySubscribers(NewsItem item) {
         try {
-            Document doc = Jsoup.connect(newsUrl).get();
-            String sourceLang = newsUrl.contains("telegraaf.nl") ? "nl" : "en";
+            String sourceLang = item.getUrl().contains("telegraaf.nl") ? "nl" : "en";
 
-            String title = textProcessing.cleanTitle(doc.title());
+            String title = textProcessing.cleanTitle(item.getTitle());
+            String preview = textProcessing.cleanPreviewText(item.getPreview());
+
             String translatedTitle = textProcessing.translateContent(title, sourceLang);
+            String translatedPreview = textProcessing.translateContent(preview, sourceLang);
 
-            // Собираем preview
-            Elements paragraphs = doc.select("p:not(.article__meta, .read-more)");
-            StringBuilder previewBuilder = new StringBuilder();
-            for (int i = 0; i < Math.min(3, paragraphs.size()); i++) {
-                String cleanText = textProcessing.cleanPreviewText(paragraphs.get(i).text());
-                if (!cleanText.isEmpty()) {
-                    previewBuilder.append(cleanText).append(" ");
-                }
-            }
-            String preview = previewBuilder.toString();
+            String url = item.getUrl();
 
-            // Проверка на дубликат (основное изменение)
-            if (textProcessing.isDuplicateNews(title, preview, newsUrl)) {
+            if (textProcessing.isDuplicateNews(title, preview, url)) {
                 System.out.println("⏩ Пропуск дубликата: " + title);
                 return;
             }
 
-            String translatedPreview = textProcessing.translateContent(preview, sourceLang);
-            String messageText = textProcessing.formatMessage(translatedTitle, translatedPreview, newsUrl);
 
-            sendTelegramMessage(messageText, newsUrl);
+            String messageText = textProcessing.formatMessage(translatedTitle, translatedPreview, url);
+
+            sendTelegramMessage(messageText, url);
 
         } catch (Exception e) {
-            System.err.println("Ошибка при обработке: " + newsUrl);
+            System.err.println("Ошибка при обработке: " + item.getUrl());
             e.printStackTrace();
         }
     }
+
+
+
+
 
     private void sendTelegramMessage(String text, String url) throws TelegramApiException {
         if (!newsToGroupEnabled) return;
@@ -231,5 +225,3 @@ public class NewsBot extends TelegramLongPollingBot {
 
 
 }
-// хочу чтоб ты  предложил доработку: сохранять дату в Redis,
-// и использовать список/множество ссылок, чтобы можно было гибко управлять старыми новостями.
