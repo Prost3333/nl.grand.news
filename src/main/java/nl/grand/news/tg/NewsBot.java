@@ -223,5 +223,4 @@ public class NewsBot extends TelegramLongPollingBot {
         return TELEGRAM_BOT_TOKEN;
     }
 
-
 }

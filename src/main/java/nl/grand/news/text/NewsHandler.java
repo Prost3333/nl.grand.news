@@ -4,7 +4,6 @@ import com.rometools.rome.feed.synd.SyndEntry;
 import com.rometools.rome.feed.synd.SyndFeed;
 import com.rometools.rome.io.SyndFeedInput;
 import com.rometools.rome.io.XmlReader;
-import io.github.bonigarcia.wdm.WebDriverManager;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import nl.grand.news.entity.NewsItem;
@@ -14,20 +13,14 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.openqa.selenium.By;
-import org.openqa.selenium.TimeoutException;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.WebDriverWait;
+
 
 import java.io.IOException;
 import java.net.URL;
-import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 
 @Data
 @AllArgsConstructor
@@ -37,25 +30,27 @@ public class NewsHandler {
 
     public List<NewsItem> getLatestNews() {
         Set<String> seenUrls = new HashSet<>();
-        List<NewsItem> allNews = new ArrayList<>();
+        List<NewsItem> result = new ArrayList<>();
 
-        for (NewsItem item : getLatestTelegraafNews()) {
-            if (seenUrls.add(item.getUrl())) {
-                allNews.add(item);
-            }
+        try {
+            result = Stream.of(
+                            getLatestTelegraafNews(),
+                            getLatestNuNlNews(),
+                            getNlTimesNews()
+                    )
+                    .flatMap(Collection::stream)
+                    .filter(item -> seenUrls.add(item.getUrl())) // add возвращает false, если дубликат
+                    .collect(Collectors.toList());
+
+            System.out.println("✅ Получено новостей после фильтрации: " + result.size());
+        } catch (Exception e) {
+            System.err.println("❌ Ошибка при получении новостей: " + e.getMessage());
+            e.printStackTrace();
         }
-        for (NewsItem item: getLatestNuNlNews()){
-            if (seenUrls.add(item.getUrl())){
-                allNews.add(item);
-            }
-        }
-        for (NewsItem item: getNlTimesNews()){
-            if (seenUrls.add(item.getUrl())){
-                allNews.add(item);
-            }
-        }
-        return allNews;
+
+        return result;
     }
+
     public List<NewsItem> getLatestNuNlNews() {
         List<NewsItem> newsList = new ArrayList<>();
         try {
