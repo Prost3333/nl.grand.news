@@ -155,7 +155,7 @@ public class NewsBot extends TelegramLongPollingBot {
     }
     private void notifySubscribers(NewsItem item) {
         try {
-            String sourceLang = item.getUrl().contains("telegraaf.nl") ? "nl" : "en";
+            String sourceLang = item.getUrl().contains("telegraaf.nl") || item.getUrl().contains("nu.nl") ? "nl" : "en";
 
             String title = textProcessing.cleanTitle(item.getTitle());
             String preview = textProcessing.cleanPreviewText(item.getPreview());
