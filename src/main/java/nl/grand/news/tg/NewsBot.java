@@ -2,15 +2,10 @@ package nl.grand.news.tg;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import nl.grand.news.cache.RedisService;
+import nl.grand.news.cache.CaffeineService;
 import nl.grand.news.config.AppConfig;
-import nl.grand.news.text.NewsHandler;
+import nl.grand.news.entity.NewsItem;
 import nl.grand.news.text.TextProcessing;
-import nl.grand.news.translate.DeepLTranslateService;
-import nl.grand.news.translate.TranslateService;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.select.Elements;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -31,7 +26,7 @@ public class NewsBot extends TelegramLongPollingBot {
     private static final String BOT_USERNAME = AppConfig.getBotUsername();
     private String UrlTgGroup = AppConfig.getGroupId();
     private ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-    private RedisService redis;
+    private CaffeineService redis;
     private boolean newsToGroupEnabled = false;
     private static int NEWS_CHECK_INTERVAL_MINUTES = 5;
     private TextProcessing textProcessing;
@@ -39,8 +34,7 @@ public class NewsBot extends TelegramLongPollingBot {
 
     public NewsBot() {
         this.textProcessing=new TextProcessing();
-        this.redis=new RedisService();
-        startGroupNewsScheduler();
+        this.redis=new CaffeineService();
     }
 
     @Override
@@ -64,14 +58,11 @@ public class NewsBot extends TelegramLongPollingBot {
     }
 
     private void handleStartOrSubscribe(long chatId) {
-        if (chatId == AppConfig.getAccessUsers()) {
             newsToGroupEnabled = true;
-            startGroupNewsScheduler();
+            startGroupNewsScheduler(chatId);
             sendSafeMessage(chatId, "Новости теперь будут отправляться в группу.");
             System.out.println("Group news scheduler started by admin.");
-        } else {
-            sendSafeMessage(chatId, "У вас нет прав для запуска рассылки в группу.");
-        }
+
     }
 
     private void handleUnsubscribe(long chatId) {
@@ -89,7 +80,7 @@ public class NewsBot extends TelegramLongPollingBot {
             int newInterval = Integer.parseInt(messageText.split(" ")[1]);
             if (newInterval >= 1 && newInterval <= 60) {
                 NEWS_CHECK_INTERVAL_MINUTES = newInterval;
-                restartScheduler();
+                restartScheduler(chatId);
                 sendSafeMessage(chatId, "Интервал обновления новостей установлен: " + newInterval + " минут.");
             } else {
                 sendSafeMessage(chatId, "Укажи интервал от 1 до 60 минут.");
@@ -108,11 +99,11 @@ public class NewsBot extends TelegramLongPollingBot {
     }
 
 
-    public void startGroupNewsScheduler() {
+    public void startGroupNewsScheduler(long chatId) {
         System.out.println("group news scheduler started");
         scheduler.scheduleAtFixedRate(() -> {
             System.out.println("check news for group...");
-            checkNews();
+            checkNews(chatId);
         }, 0, NEWS_CHECK_INTERVAL_MINUTES, TimeUnit.MINUTES);
     }
 
@@ -123,75 +114,69 @@ public class NewsBot extends TelegramLongPollingBot {
 
 
 
-    private void restartScheduler() {
+    private void restartScheduler(long chatId) {
         System.out.println("🔁 Перезапуск планировщика с интервалом " + NEWS_CHECK_INTERVAL_MINUTES + " минут.");
         scheduler.shutdownNow();
         scheduler = Executors.newScheduledThreadPool(1);
-        startGroupNewsScheduler();
+        startGroupNewsScheduler(chatId);
     }
 
-    private void checkNews() {
+    private void checkNews(long chatId) {
         System.out.println("checkNews ready");
         System.out.println("newsToGroupEnabled status: " + newsToGroupEnabled);
-        List<String> latestNews = textProcessing.getNewsHandler().getLatestNews();
+
+        List<NewsItem> latestNews = textProcessing.getNewsHandler().getLatestNews();
         System.out.println("all news count: " + latestNews.size());
-        for (String newsUrl : latestNews) {
-            String normalizedUrl = textProcessing.normalizeUrl(newsUrl);
+
+        for (NewsItem item : latestNews) {
+            String url = item.getUrl();
+            String normalizedUrl = textProcessing.normalizeUrl(url);
+
             if (!redis.isNewsAlreadySent(normalizedUrl)) {
                 System.out.println("✅ send new news: " + normalizedUrl);
                 redis.markNewsAsSent(normalizedUrl);
-                notifySubscribers(newsUrl);
+
+                notifySubscribers(item, chatId); // передаём весь NewsItem, а не строку
 
                 try {
                     Thread.sleep(10000);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    System.err.println(" error sender");
+                    System.err.println("error sender");
                 }
             } else {
-                System.out.println(" Уже отправляли: " + normalizedUrl);
+                System.out.println("Уже отправляли: " + normalizedUrl);
             }
         }
     }
 
 
-    private void notifySubscribers(String newsUrl) {
+
+    private void notifySubscribers(NewsItem item, long chatId) {
         try {
-            Document doc = Jsoup.connect(newsUrl).get();
-            String sourceLang = newsUrl.contains("telegraaf.nl") ? "nl" : "en";
+            String title = textProcessing.cleanTitle(item.getTitle());
+            String preview = textProcessing.cleanPreviewText(item.getPreview());
+            String url = item.getUrl();
 
-            String title = textProcessing.cleanTitle(doc.title());
-            String translatedTitle = textProcessing.translateContent(title, sourceLang);
-
-            // Собираем preview
-            Elements paragraphs = doc.select("p:not(.article__meta, .read-more)");
-            StringBuilder previewBuilder = new StringBuilder();
-            for (int i = 0; i < Math.min(3, paragraphs.size()); i++) {
-                String cleanText = textProcessing.cleanPreviewText(paragraphs.get(i).text());
-                if (!cleanText.isEmpty()) {
-                    previewBuilder.append(cleanText).append(" ");
-                }
-            }
-            String preview = previewBuilder.toString();
-
-            // Проверка на дубликат (основное изменение)
-            if (textProcessing.isDuplicateNews(title, preview, newsUrl)) {
+            // Проверка на дубликат
+            if (textProcessing.isDuplicateNews(title, preview, url)) {
                 System.out.println("⏩ Пропуск дубликата: " + title);
                 return;
             }
 
-            String translatedPreview = textProcessing.translateContent(preview, sourceLang);
-            String messageText = textProcessing.formatMessage(translatedTitle, translatedPreview, newsUrl);
+            // Формируем сообщение
+            String messageText = textProcessing.formatMessage(title, preview, url);
 
-            sendTelegramMessage(messageText, newsUrl);
+            sendTelegramMessage(chatId, messageText, url);
 
         } catch (Exception e) {
-            System.err.println("Ошибка при обработке: " + newsUrl);
+            System.err.println("Ошибка при обработке: " + item.getUrl());
             e.printStackTrace();
         }
     }
 
-    private void sendTelegramMessage(String text, String url) throws TelegramApiException {
+
+    private void sendTelegramMessage(long chatId,String text, String url) throws TelegramApiException {
         if (!newsToGroupEnabled) return;
 
         InlineKeyboardMarkup markup = InlineKeyboardMarkup.builder()
@@ -204,7 +189,7 @@ public class NewsBot extends TelegramLongPollingBot {
                 .build();
 
         SendMessage message = new SendMessage();
-        message.setChatId(UrlTgGroup);
+        message.setChatId(chatId);
         message.setText(text);
         message.setReplyMarkup(markup);
         message.setParseMode("HTML");
