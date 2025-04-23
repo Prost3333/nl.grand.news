@@ -4,7 +4,6 @@ import com.rometools.rome.feed.synd.SyndEntry;
 import com.rometools.rome.feed.synd.SyndFeed;
 import com.rometools.rome.io.SyndFeedInput;
 import com.rometools.rome.io.XmlReader;
-import io.github.bonigarcia.wdm.WebDriverManager;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import nl.grand.news.entity.NewsItem;
@@ -14,14 +13,6 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.openqa.selenium.By;
-import org.openqa.selenium.TimeoutException;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.io.IOException;
 import java.net.URL;
@@ -37,16 +28,7 @@ public class NewsHandler {
     public DeepLTranslateService deepLTranslateService;
 
 
-    //    public List<String> getLatestNews() {
-//        Set<String> allNews = new LinkedHashSet<>();
-//
-//        allNews.addAll(getLatestTelegraafNews());
-////        allNews.addAll(getDutchNews());
-////        allNews.addAll(getNlTimesNews());
-////        allNews.addAll(getEuronewsNetherlandsNews());
-//
-//        return new ArrayList<>(allNews);
-//    }
+
     public List<NewsItem> getLatestNews() {
         Set<String> seenUrls = new HashSet<>();
         List<NewsItem> allNews = new ArrayList<>();
@@ -178,86 +160,6 @@ public class NewsHandler {
                 .trim();
     }
 
-
-    public List<String> getDutchNews() {
-        List<String> newsList = new ArrayList<>();
-        WebDriver driver = null;
-
-        try {
-            // Настройка WebDriver для работы в Docker и локально
-            String chromePath = System.getenv("CHROME_BIN");
-            String driverPath = System.getenv("CHROMEDRIVER_PATH");
-
-            if (chromePath != null && driverPath != null) {
-                // Режим для Docker (Chromium)
-                System.setProperty("webdriver.chrome.driver", driverPath);
-                ChromeOptions options = new ChromeOptions();
-                options.setBinary(chromePath);
-                options.addArguments(
-                        "--headless",
-                        "--disable-gpu",
-                        "--window-size=1920,1080",
-                        "--no-sandbox",
-                        "--disable-dev-shm-usage",
-                        "--disable-extensions",
-                        "--remote-debugging-port=9222"
-                );
-                driver = new ChromeDriver(options);
-            } else {
-                // Режим для локальной разработки (Chrome)
-                WebDriverManager.chromedriver().setup();
-                ChromeOptions options = new ChromeOptions();
-                options.addArguments(
-                        "--headless",
-                        "--disable-gpu",
-                        "--window-size=1920,1080"
-                );
-                driver = new ChromeDriver(options);
-            }
-
-            // Парсинг новостей
-            driver.get("https://www.dutchnews.nl/");
-
-            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(20));
-            wait.until(ExpectedConditions.presenceOfElementLocated(
-                    By.cssSelector("h3[data-link]")
-            ));
-
-            List<WebElement> headers = driver.findElements(By.cssSelector("h3[data-link]"));
-            System.out.println("Найдено статей: " + headers.size());
-
-            // Сбор уникальных URL
-            headers.stream()
-                    .map(header -> header.getAttribute("data-link"))
-                    .filter(url -> url != null
-                            && url.startsWith("https://www.dutchnews.nl/")
-                            && !url.contains("#"))
-                    .distinct()
-                    .limit(10)
-                    .forEach(url -> {
-                        newsList.add(url);
-                        System.out.println("Добавлена ссылка: " + url);
-                    });
-
-        } catch (TimeoutException e) {
-            System.err.println("Таймаут при загрузке страницы: " + e.getMessage());
-        } catch (NoSuchElementException e) {
-            System.err.println("Элемент не найден: " + e.getMessage());
-        } catch (Exception e) {
-            System.err.println("Неожиданная ошибка: " + e.getMessage());
-            e.printStackTrace();
-        } finally {
-            if (driver != null) {
-                try {
-                    driver.quit();
-                } catch (Exception e) {
-                    System.err.println("Ошибка при закрытии драйвера: " + e.getMessage());
-                }
-            }
-        }
-
-        return newsList;
-    }
 
     public List<NewsItem> getNlTimesNews() {
         List<NewsItem> newsList = new ArrayList<>();
