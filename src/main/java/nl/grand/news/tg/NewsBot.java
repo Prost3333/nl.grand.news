@@ -59,14 +59,11 @@ public class NewsBot extends TelegramLongPollingBot {
     }
 
     private void handleStartOrSubscribe(long chatId) {
-        if (chatId == AppConfig.getAccessUsers()) {
             newsToGroupEnabled = true;
-            startGroupNewsScheduler();
+            restartScheduler();
             sendSafeMessage(chatId, "Новости теперь будут отправляться в группу.");
             System.out.println("Group news scheduler started by admin.");
-        } else {
-            sendSafeMessage(chatId, "У вас нет прав для запуска рассылки в группу.");
-        }
+            scheduler.schedule(this::checkNews, 0, TimeUnit.SECONDS);
     }
 
     private void handleUnsubscribe(long chatId) {
@@ -120,7 +117,16 @@ public class NewsBot extends TelegramLongPollingBot {
 
     private void restartScheduler() {
         System.out.println("🔁 Перезапуск планировщика с интервалом " + NEWS_CHECK_INTERVAL_MINUTES + " минут.");
-        scheduler.shutdownNow();
+        if (!scheduler.isShutdown()) {
+            scheduler.shutdownNow();
+            try {
+                if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                    System.err.println("Планировщик не завершил работу вовремя");
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
         scheduler = Executors.newScheduledThreadPool(1);
         startGroupNewsScheduler();
     }
@@ -185,24 +191,34 @@ public class NewsBot extends TelegramLongPollingBot {
 
 
 
-    private void sendTelegramMessage(String text, String url) throws TelegramApiException {
-        if (!newsToGroupEnabled) return;
+    private void sendTelegramMessage(String text, String url) {
+        if (!newsToGroupEnabled) {
+            System.out.println("Отправка в группу отключена. Сообщение не отправлено.");
+            return;
+        }
 
-        InlineKeyboardMarkup markup = InlineKeyboardMarkup.builder()
-                .keyboardRow(List.of(
-                        InlineKeyboardButton.builder()
-                                .text("Читать полностью")
-                                .url(url)
-                                .build()
-                ))
-                .build();
+        try {
+            InlineKeyboardMarkup markup = InlineKeyboardMarkup.builder()
+                    .keyboardRow(List.of(
+                            InlineKeyboardButton.builder()
+                                    .text("Читать полностью")
+                                    .url(url)
+                                    .build()
+                    ))
+                    .build();
 
-        SendMessage message = new SendMessage();
-        message.setChatId(UrlTgGroup);
-        message.setText(text);
-        message.setReplyMarkup(markup);
-        message.setParseMode("HTML");
-        execute(message);
+            SendMessage message = new SendMessage();
+            message.setChatId(UrlTgGroup);
+            message.setText(text);
+            message.setReplyMarkup(markup);
+            message.setParseMode("HTML");
+
+            execute(message);
+            System.out.println("Сообщение успешно отправлено в группу: " + UrlTgGroup);
+        } catch (TelegramApiException e) {
+            System.err.println("Ошибка отправки в группу " + UrlTgGroup + ": " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
 
