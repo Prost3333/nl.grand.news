@@ -63,9 +63,7 @@ public class TextProcessing {
     public String translateContent(String text, String sourceLang) {
         if (text == null || text.isBlank()) return "";
 
-        return "nl".equals(sourceLang)
-                ? newsHandler.deepLTranslateService.translateText(text, sourceLang, "ru")
-                : newsHandler.translateService.translateText(text, sourceLang, "ru");
+        return newsHandler.deepLTranslateService.translateText(text, sourceLang, "ru");
     }
 
     // Форматирование сообщения

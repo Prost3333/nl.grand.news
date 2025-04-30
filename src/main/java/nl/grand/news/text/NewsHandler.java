@@ -28,20 +28,31 @@ public class NewsHandler {
     public TranslateService translateService;
     public DeepLTranslateService deepLTranslateService;
 
-    public List<NewsItem> getLatestNews() {
+    public List<NewsItem> getLatestNews(int limit) {
         Set<String> seenUrls = new HashSet<>();
         List<NewsItem> result = new ArrayList<>();
 
+        List<String> sportKeywords = List.of(
+                "sport", "voetbal", "voetballer", "wedstrijd", "FC", "Ajax", "PSV",
+                "Feyenoord", "doelpunt", "ronde", "kampioenschap", "atleet", "Olympisch",
+                "Formule", "wielrennen", "tennis", "beker", "goal"
+        );
+
         try {
-            result = Stream.of(
-                            getLatestTelegraafNews(),
-                            getLatestNuNlNews(),
-                            getNlTimesNews()
+            List<NewsItem> combined = Stream.of(
+                            getLatestTelegraafNews(limit),
+                            getLatestNuNlNews(limit),
+                            getNlTimesNews(limit)
                     )
                     .flatMap(Collection::stream)
-                    .filter(item -> seenUrls.add(item.getUrl())) // add возвращает false, если дубликат
+                    .filter(item -> seenUrls.add(item.getUrl()))
+                    .filter(item -> {
+                        String lowerTitle = item.getTitle().toLowerCase();
+                        return sportKeywords.stream().noneMatch(kw -> lowerTitle.contains(kw));
+                    })
                     .collect(Collectors.toList());
 
+            result = combined;
             System.out.println("✅ Получено новостей после фильтрации: " + result.size());
         } catch (Exception e) {
             System.err.println("❌ Ошибка при получении новостей: " + e.getMessage());
@@ -51,8 +62,11 @@ public class NewsHandler {
         return result;
     }
 
-    public List<NewsItem> getLatestNuNlNews() {
+
+    public List<NewsItem> getLatestNuNlNews(int limit) {
         List<NewsItem> newsList = new ArrayList<>();
+        Set<String> seenLinks = new HashSet<>();
+
         try {
             URL feedUrl = new URL("https://www.nu.nl/rss/Algemeen");
             SyndFeedInput input = new SyndFeedInput();
@@ -64,14 +78,14 @@ public class NewsHandler {
                 String description = "";
 
                 if (entry.getDescription() != null && entry.getDescription().getValue() != null) {
-                    description = entry.getDescription().getValue().replaceAll("<.*?>", "").trim(); // Удаляем HTML
+                    description = entry.getDescription().getValue().replaceAll("<.*?>", "").trim();
                 }
 
-                if (!title.isEmpty() && !link.isEmpty()) {
+                if (!title.isEmpty() && !link.isEmpty() && seenLinks.add(link)) {
                     newsList.add(new NewsItem(title, description, link));
                 }
 
-                if (newsList.size() >= 10) break; // Ограничим до 10 новостей
+                if (newsList.size() >= limit) break;
             }
 
         } catch (Exception e) {
@@ -84,7 +98,9 @@ public class NewsHandler {
 
 
 
-    public List<NewsItem> getLatestTelegraafNews() {
+
+
+    public List<NewsItem> getLatestTelegraafNews(int limit) {
         List<NewsItem> newsList = new ArrayList<>();
         try {
             Document doc = Jsoup.connect("https://www.telegraaf.nl/").get();
@@ -122,13 +138,12 @@ public class NewsHandler {
                     }
                     String preview = previewBuilder.toString().trim();
 
-                    // Добавляем, если всё ок
+
                     if (!title.isEmpty() && !preview.isEmpty()) {
                         newsList.add(new NewsItem(title, preview, url));
                     }
 
-                    // Ограничиваем количество новостей
-                    if (newsList.size() >= 10) break;
+                    if (newsList.size() >= limit) break;
 
                 } catch (IOException e) {
                     System.err.println("Ошибка при загрузке статьи: " + url);
@@ -157,7 +172,7 @@ public class NewsHandler {
     }
 
 
-    public List<NewsItem> getNlTimesNews() {
+    public List<NewsItem> getNlTimesNews(int limit) {
         List<NewsItem> newsList = new ArrayList<>();
         try {
             System.out.println("Fetching NL Times homepage...");
@@ -213,7 +228,7 @@ public class NewsHandler {
                 }
 
                 // Ограничиваем количество новостей
-                if (newsList.size() >= 10) break;
+                if (newsList.size() >= limit) break;
             }
 
         } catch (IOException e) {
