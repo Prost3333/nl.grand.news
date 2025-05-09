@@ -81,6 +81,10 @@ public class NewsHandler {
                     description = entry.getDescription().getValue().replaceAll("<.*?>", "").trim();
                 }
 
+                if (link.contains("/voetbal/") || link.contains("/sport/")) {
+                    continue;
+                }
+
                 if (!title.isEmpty() && !link.isEmpty() && seenLinks.add(link)) {
                     newsList.add(new NewsItem(title, description, link));
                 }
