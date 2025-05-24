@@ -21,12 +21,12 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-
 @Data
 @AllArgsConstructor
 public class NewsHandler {
     public TranslateService translateService;
     public DeepLTranslateService deepLTranslateService;
+    public  ParsingProcessing parsingProcessing;
 
     public List<NewsItem> getLatestNews(int limit) {
         Set<String> seenUrls = new HashSet<>();
@@ -81,7 +81,7 @@ public class NewsHandler {
                     description = entry.getDescription().getValue().replaceAll("<.*?>", "").trim();
                 }
 
-                if (link.contains("/voetbal/") || link.contains("/sport/")) {
+                if (link.contains("/voetbal/") || link.contains("/sport/") || link.contains("/video/")) {
                     continue;
                 }
 
@@ -101,9 +101,6 @@ public class NewsHandler {
     }
 
 
-
-
-
     public List<NewsItem> getLatestTelegraafNews(int limit) {
         List<NewsItem> newsList = new ArrayList<>();
         try {
@@ -113,46 +110,14 @@ public class NewsHandler {
             for (Element article : articles) {
                 String url = article.absUrl("href");
 
-                if (!url.contains("/financieel/") || !url.startsWith("https")) {
-                    continue;
+                if (!parsingProcessing.isValidTelegraafUrl(url)) continue;
+
+                NewsItem newsItem = parsingProcessing.fetchTelegraafNewsItem(url);
+                if (newsItem != null) {
+                    newsList.add(newsItem);
                 }
 
-                try {
-                    Document articleDoc = Jsoup.connect(url).get();
-
-                    Element h1 = articleDoc.selectFirst("h1");
-                    String title = h1 != null ? cleanTitle(h1.text()) : "";
-
-                    // Если title слишком короткий или просто "LIVE" — пробуем из meta og:title
-                    if (title.isBlank() || title.equalsIgnoreCase("LIVE")) {
-                        Element metaOgTitle = articleDoc.selectFirst("meta[property=og:title]");
-                        if (metaOgTitle != null) {
-                            title = cleanTitle(metaOgTitle.attr("content"));
-                        }
-                    }
-
-                    // Собираем превью из первых 2-3 параграфов
-                    Elements paragraphs = articleDoc.select("p:not(.article__meta, .read-more)");
-                    StringBuilder previewBuilder = new StringBuilder();
-                    for (int i = 0; i < Math.min(3, paragraphs.size()); i++) {
-                        String cleanText = cleanPreviewText(paragraphs.get(i).text());
-                        if (!cleanText.isEmpty()) {
-                            previewBuilder.append(cleanText).append(" ");
-                        }
-                    }
-                    String preview = previewBuilder.toString().trim();
-
-
-                    if (!title.isEmpty() && !preview.isEmpty()) {
-                        newsList.add(new NewsItem(title, preview, url));
-                    }
-
-                    if (newsList.size() >= limit) break;
-
-                } catch (IOException e) {
-                    System.err.println("Ошибка при загрузке статьи: " + url);
-                    e.printStackTrace();
-                }
+                if (newsList.size() >= limit) break;
             }
         } catch (IOException e) {
             System.err.println("Ошибка при подключении к Telegraaf");
@@ -162,18 +127,6 @@ public class NewsHandler {
         return newsList;
     }
 
-    public String cleanTitle(String title) {
-        return title.replaceAll("\\(\\d+\\)", "")          // Удаление (60)
-                .replaceAll("\\|.*$", "")              // Удаление всего после последнего |
-                .replaceAll("Lees verder$", "")        // Удаление "Lees verder"
-                .replaceAll("Voor school$", "")        // Удаление "Voor school"
-                .trim();
-    }
-    public String cleanPreviewText(String text) {
-        return text.replaceAll("Lees.*$", "")     // Удаление "Lees verder..."
-                .replaceAll("Voor school.*$", "")     // Удаление "Voor school..."
-                .trim();
-    }
 
 
     public List<NewsItem> getNlTimesNews(int limit) {
@@ -182,57 +135,17 @@ public class NewsHandler {
             System.out.println("Fetching NL Times homepage...");
             Document doc = Jsoup.connect("https://nltimes.nl/").get();
 
-            // Получаем все ссылки на странице
-            Elements links = doc.select("a[href]");
+            Set<String> articleUrls = doc.select("a[href]")
+                    .stream()
+                    .map(link -> link.absUrl("href"))
+                    .filter(ParsingProcessing::isValidNewsUrl)
+                    .distinct()
+                    .limit(limit * 2L)
+                    .collect(Collectors.toSet());
 
-            for (Element link : links) {
-                String url = link.absUrl("href");
-
-                // Проверяем, что это новостная статья (начинается с /202 или с https://nltimes.nl/202)
-                if (url.startsWith("https://nltimes.nl/202") && !url.contains("#")) {
-                    // Проверяем, не добавлена ли ссылка уже
-                    if (!newsList.stream().anyMatch(news -> news.getUrl().equals(url))) {
-                        try {
-                            Document articleDoc = Jsoup.connect(url).get();
-
-                            // Извлекаем заголовок
-                            Element h1 = articleDoc.selectFirst("h1");
-                            String title = h1 != null ? cleanTitle(h1.text()) : "";
-
-                            // Если title пустое, пробуем из meta og:title
-                            if (title.isBlank()) {
-                                Element metaOgTitle = articleDoc.selectFirst("meta[property=og:title]");
-                                if (metaOgTitle != null) {
-                                    title = cleanTitle(metaOgTitle.attr("content"));
-                                }
-                            }
-
-                            // Собираем превью из первых нескольких параграфов
-                            Elements paragraphs = articleDoc.select("p:not(.article__meta, .read-more)");
-                            StringBuilder previewBuilder = new StringBuilder();
-                            for (int i = 0; i < Math.min(3, paragraphs.size()); i++) {
-                                String cleanText = cleanPreviewText(paragraphs.get(i).text());
-                                if (!cleanText.isEmpty()) {
-                                    previewBuilder.append(cleanText).append(" ");
-                                }
-                            }
-                            String preview = previewBuilder.toString().trim();
-
-                            // Добавляем новость в список, если есть заголовок и превью
-                            if (!title.isEmpty() && !preview.isEmpty()) {
-                                newsList.add(new NewsItem(title, preview, url));
-                                System.out.println("NL Times news added: " + url);
-                            }
-
-                        } catch (IOException e) {
-                            System.err.println("Ошибка при загрузке статьи: " + url);
-                            e.printStackTrace();
-                        }
-                    }
-                }
-
-                // Ограничиваем количество новостей
+            for (String url : articleUrls) {
                 if (newsList.size() >= limit) break;
+                newsList.add(parsingProcessing.fetchNewsItem(url));
             }
 
         } catch (IOException e) {
@@ -240,39 +153,11 @@ public class NewsHandler {
             e.printStackTrace();
         }
 
+        newsList.removeIf(Objects::isNull);
         System.out.println("Total articles found: " + newsList.size());
         return newsList;
     }
 
-
-
-
-    public List<String> getEuronewsNetherlandsNews() {
-        List<String> newsList = new ArrayList<>();
-        try {
-            Document doc = Jsoup.connect("https://www.euronews.com/rss?level=theme&name=news").get();
-
-            Elements items = doc.select("item");
-            for (Element item : items) {
-                String title = item.selectFirst("title").text().toLowerCase();
-                String description = item.selectFirst("description").text().toLowerCase();
-                String link = item.selectFirst("link").text();
-
-                if ((title.contains("netherlands") || title.contains("dutch")) ||
-                        (description.contains("netherlands") || description.contains("dutch"))) {
-                    if (!newsList.contains(link)) {
-                        newsList.add(link);
-                        System.out.println("Euronews NL-related news added: " + link);
-                    }
-                }
-
-                if (newsList.size() >= 10) break;
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return newsList;
-    }
 
 
     public String getSourceEmoji(String newsUrl) {

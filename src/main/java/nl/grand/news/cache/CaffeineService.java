@@ -17,8 +17,8 @@ public class CaffeineService {
 
     public CaffeineService() {
         this.cache = Caffeine.newBuilder()
-                .expireAfterWrite(Duration.ofSeconds(345600)) // 4 дня в секундах
-                .maximumSize(10_000) // Ограничение на размер кэша
+                .expireAfterWrite(Duration.ofSeconds(345600)) // 4 дня
+                .maximumSize(10_000)
                 .build();
 
         System.out.println("✅ Caffeine Cache initialized");

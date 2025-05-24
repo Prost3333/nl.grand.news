@@ -18,7 +18,7 @@ import java.util.Set;
 public class TextProcessing {
     public NewsHandler newsHandler;
     public TextProcessing(){
-        this.newsHandler = new NewsHandler(new TranslateService(),new DeepLTranslateService());
+        this.newsHandler = new NewsHandler(new TranslateService(),new DeepLTranslateService(), new ParsingProcessing());
     }
     private final Set<String> processedContentHashes = new HashSet<>();
 
@@ -28,8 +28,6 @@ public class TextProcessing {
         if (processedContentHashes.contains(contentHash)) {
             return true;
         }
-
-        // Добавление в коллекцию обработанных новостей
         processedContentHashes.add(contentHash);
         return false;
     }
@@ -45,17 +43,16 @@ public class TextProcessing {
 
 
     public String cleanTitle(String title) {
-        return title.replaceAll("\\(\\d+\\)", "")          // Удаление (60)
-                .replaceAll("\\|.*$", "")              // Удаление всего после последнего |
-                .replaceAll("Lees verder$", "")        // Удаление "Lees verder"
-                .replaceAll("Voor school$", "")        // Удаление "Voor school"
+        return title.replaceAll("\\(\\d+\\)", "")
+                .replaceAll("\\|.*$", "")
+                .replaceAll("Lees verder$", "")
+                .replaceAll("Voor school$", "")
                 .trim();
     }
 
-    // Метод для очистки текста превью
     public String cleanPreviewText(String text) {
-        return text.replaceAll("Lees.*$", "")     // Удаление "Lees verder..."
-                .replaceAll("Voor school.*$", "")     // Удаление "Voor school..."
+        return text.replaceAll("Lees.*$", "")
+                .replaceAll("Voor school.*$", "")
                 .trim();
     }
 
@@ -82,7 +79,6 @@ public class TextProcessing {
             URI uri = new URI(url);
             String host = uri.getHost();
 
-            // Специальная обработка для telegraaf.nl
             if (host != null && host.contains("telegraaf.nl")) {
                 String[] parts = uri.getPath().split("/");
                 for (String part : parts) {
@@ -94,7 +90,7 @@ public class TextProcessing {
             return uri.getScheme() + "://" + host + uri.getPath();
 
         } catch (Exception e) {
-            return url; // В случае ошибки вернём оригинал
+            return url;
         }
     }
 

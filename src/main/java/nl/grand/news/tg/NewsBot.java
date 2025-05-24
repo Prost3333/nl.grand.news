@@ -28,8 +28,8 @@ public class NewsBot extends TelegramLongPollingBot {
     private ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private CaffeineService caffeineService;
     private boolean newsToGroupEnabled = false;
-    private static int NEWS_CHECK_INTERVAL_MINUTES = 5;
-    private static int limit = 5;
+    private static int NEWS_CHECK_INTERVAL_MINUTES = 50;
+    private static int limit = 1;
     private TextProcessing textProcessing;
 
 
@@ -170,7 +170,7 @@ public class NewsBot extends TelegramLongPollingBot {
                 System.out.println("✅ send new news: " + normalizedUrl);
                 caffeineService.markNewsAsSent(normalizedUrl);
 
-                notifySubscribers(item); // передаём весь NewsItem, а не строку
+                notifySubscribers(item);
 
                 try {
                     Thread.sleep(10000);
